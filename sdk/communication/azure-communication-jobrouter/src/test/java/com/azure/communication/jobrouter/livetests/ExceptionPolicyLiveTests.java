@@ -1,8 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-package com.azure.communication.jobrouter;
+package com.azure.communication.jobrouter.livetests;
 
+import com.azure.communication.jobrouter.JobRouterTestBase;
+import com.azure.communication.jobrouter.RouterAdministrationClient;
+import com.azure.communication.jobrouter.RouterAdministrationClientBuilder;
 import com.azure.communication.jobrouter.models.CancelExceptionAction;
 import com.azure.communication.jobrouter.models.ExceptionAction;
 import com.azure.communication.jobrouter.models.ExceptionPolicy;

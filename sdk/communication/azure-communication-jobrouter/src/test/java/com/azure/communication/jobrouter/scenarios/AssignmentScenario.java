@@ -1,24 +1,32 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+package com.azure.communication.jobrouter.scenarios;
 
-package com.azure.communication.jobrouter;
-
+import com.azure.communication.jobrouter.JobRouterTestBase;
+import com.azure.communication.jobrouter.RouterAdministrationClient;
+import com.azure.communication.jobrouter.RouterAdministrationClientBuilder;
+import com.azure.communication.jobrouter.RouterClient;
+import com.azure.communication.jobrouter.RouterClientBuilder;
+import com.azure.communication.jobrouter.models.BestWorkerMode;
 import com.azure.communication.jobrouter.models.ChannelConfiguration;
 import com.azure.communication.jobrouter.models.DistributionPolicy;
 import com.azure.communication.jobrouter.models.JobQueue;
 import com.azure.communication.jobrouter.models.LabelValue;
 import com.azure.communication.jobrouter.models.QueueAssignment;
+import com.azure.communication.jobrouter.models.RouterJob;
 import com.azure.communication.jobrouter.models.RouterWorker;
+import com.azure.communication.jobrouter.models.options.CreateDistributionPolicyOptions;
+import com.azure.communication.jobrouter.models.options.CreateJobOptions;
 import com.azure.communication.jobrouter.models.options.CreateWorkerOptions;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class RouterWorkerLiveTests extends JobRouterTestBase {
+public class AssignmentScenario extends JobRouterTestBase {
+
     private RouterClient routerClient;
 
     private RouterAdministrationClient routerAdminClient;
@@ -36,23 +44,21 @@ public class RouterWorkerLiveTests extends JobRouterTestBase {
             .buildClient());
     }
 
-    @ParameterizedTest
-    @MethodSource("com.azure.core.test.TestBase#getHttpClients")
-    public void createWorker() {
-        // Setup
-        /**
-         * Setup queue
-         */
-        String distributionPolicyId = String.format("%s-CreateWorker-DistributionPolicy", JAVA_LIVE_TESTS);
+    @Test
+    public void assignmentScenario() {
+        // // Setup
+        String channelId = "assignmentScenarioChannel";
+
+        // Create Distribution policy
+        String distributionPolicyId = String.format("%s-AssignmentScenario-DistributionPolicy", JAVA_LIVE_TESTS);
         DistributionPolicy distributionPolicy = createDistributionPolicy(routerAdminClient, distributionPolicyId);
 
-        String queueId = String.format("%s-CreateWorker-Queue", JAVA_LIVE_TESTS);
+        // Create Queue
+        String queueId = String.format("%s-AssignmentScenario-Queue", JAVA_LIVE_TESTS);
         JobQueue jobQueue = createQueue(routerAdminClient, queueId, distributionPolicy.getId());
 
-        /**
-         * Setup worker
-         */
-        String workerId = String.format("%s-CreateWorker-Worker", JAVA_LIVE_TESTS);
+        // CreateWorker
+        String workerId = String.format("%s-AssignmentScenario-Worker", JAVA_LIVE_TESTS);
 
         Map<String, LabelValue> labels = new HashMap<String, LabelValue>() {
             {
@@ -70,7 +76,7 @@ public class RouterWorkerLiveTests extends JobRouterTestBase {
         channelConfiguration.setCapacityCostPerJob(1);
         Map<String, ChannelConfiguration> channelConfigurations = new HashMap<String, ChannelConfiguration>() {
             {
-                put("channel1", channelConfiguration);
+                put(channelId, channelConfiguration);
             }
         };
 
@@ -87,15 +93,24 @@ public class RouterWorkerLiveTests extends JobRouterTestBase {
             .setChannelConfigurations(channelConfigurations)
             .setQueueAssignments(queueAssignments);
 
-        // Action
-        RouterWorker result = routerClient.createWorker(createWorkerOptions);
+        routerClient.createWorker(createWorkerOptions);
 
-        // Verify
-        assertEquals(workerId, result.getId());
+        // Create job
+        String jobId = String.format("%s-AssignmentScenario-RouterJob", JAVA_LIVE_TESTS);
+
+        CreateJobOptions createJobOptions = new CreateJobOptions(jobId, channelId, queueId);
+        RouterJob routerJob = routerClient.createJob(createJobOptions);
+
+        // // Action, Verify
+        RouterWorker polledWorker = routerClient.getWorker(workerId);
+
+        assertTrue(polledWorker.getOffers().stream().anyMatch(x -> x.getJobId() == jobId));
 
         // Cleanup
+        routerClient.deleteJob(jobId);
         routerClient.deleteWorker(workerId);
         routerAdminClient.deleteQueue(queueId);
         routerAdminClient.deleteDistributionPolicy(distributionPolicyId);
+
     }
 }

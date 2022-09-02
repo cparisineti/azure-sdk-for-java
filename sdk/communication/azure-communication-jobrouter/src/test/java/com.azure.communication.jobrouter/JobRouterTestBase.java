@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
-class JobRouterTestBase extends TestBase {
+public class JobRouterTestBase extends TestBase {
     protected static final String JAVA_LIVE_TESTS = "JAVA_LIVE_TESTS";
 
     protected String getConnectionString() {
@@ -50,7 +50,7 @@ class JobRouterTestBase extends TestBase {
         return connectionString;
     }
 
-    <T> T clientSetup(Function<HttpPipeline, T> clientBuilder) {
+    protected <T> T clientSetup(Function<HttpPipeline, T> clientBuilder) {
         HttpClient httpClient;
 
         CommunicationConnectionString connectionString = new CommunicationConnectionString(getConnectionString());
