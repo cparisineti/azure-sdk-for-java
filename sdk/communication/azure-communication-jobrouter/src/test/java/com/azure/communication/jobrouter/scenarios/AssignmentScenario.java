@@ -5,24 +5,25 @@ import com.azure.communication.jobrouter.RouterAdministrationClient;
 import com.azure.communication.jobrouter.RouterAdministrationClientBuilder;
 import com.azure.communication.jobrouter.RouterClient;
 import com.azure.communication.jobrouter.RouterClientBuilder;
-import com.azure.communication.jobrouter.models.BestWorkerMode;
+import com.azure.communication.jobrouter.models.AcceptJobOfferResult;
 import com.azure.communication.jobrouter.models.ChannelConfiguration;
 import com.azure.communication.jobrouter.models.DistributionPolicy;
+import com.azure.communication.jobrouter.models.JobOffer;
 import com.azure.communication.jobrouter.models.JobQueue;
 import com.azure.communication.jobrouter.models.LabelValue;
 import com.azure.communication.jobrouter.models.QueueAssignment;
 import com.azure.communication.jobrouter.models.RouterJob;
 import com.azure.communication.jobrouter.models.RouterWorker;
-import com.azure.communication.jobrouter.models.options.CreateDistributionPolicyOptions;
+import com.azure.communication.jobrouter.models.options.CloseJobOptions;
 import com.azure.communication.jobrouter.models.options.CreateJobOptions;
 import com.azure.communication.jobrouter.models.options.CreateWorkerOptions;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class AssignmentScenario extends JobRouterTestBase {
@@ -98,13 +99,33 @@ public class AssignmentScenario extends JobRouterTestBase {
         // Create job
         String jobId = String.format("%s-AssignmentScenario-RouterJob", JAVA_LIVE_TESTS);
 
-        CreateJobOptions createJobOptions = new CreateJobOptions(jobId, channelId, queueId);
+        CreateJobOptions createJobOptions = new CreateJobOptions(jobId, channelId, queueId)
+            .setPriority(1);
         RouterJob routerJob = routerClient.createJob(createJobOptions);
 
         // // Action, Verify
         RouterWorker polledWorker = routerClient.getWorker(workerId);
 
         assertTrue(polledWorker.getOffers().stream().anyMatch(x -> x.getJobId() == jobId));
+
+        JobOffer jobOffer = polledWorker.getOffers().stream().filter(x -> x.getJobId() == jobId).findFirst().get();
+
+        assertEquals(1, jobOffer.getCapacityCost());
+        assertNotNull(jobOffer.getOfferTimeUtc());
+        assertNotNull(jobOffer.getExpiryTimeUtc());
+
+        AcceptJobOfferResult acceptJobOfferResult = routerClient.acceptJobOffer(polledWorker.getId(), jobOffer.getId());
+
+        assertEquals(jobId, acceptJobOfferResult.getJobId());
+        assertEquals(workerId, acceptJobOfferResult.getWorkerId());
+
+        routerClient.completeJob(
+            acceptJobOfferResult.getJobId(),
+            acceptJobOfferResult.getAssignmentId(),
+            String.format("Job completed by %s", workerId));
+
+        CloseJobOptions closeJobOptions = new CloseJobOptions(acceptJobOfferResult.getJobId(), acceptJobOfferResult.getAssignmentId());
+        routerClient.closeJob(closeJobOptions);
 
         // Cleanup
         routerClient.deleteJob(jobId);
